@@ -140,6 +140,7 @@ const addQuestions = asyncHandler(async (req, res) => {
 const deleteQuestions = asyncHandler(async (req, res) => {
   const { _id, chapterId, questionText } = req.body;
   const user = req.user;
+  let chapterIndex;
 
   const course = await Course.findById(_id);
 
@@ -147,9 +148,176 @@ const deleteQuestions = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Not Authorized !!!");
   }
 
-  const chapterIndex = course.chapters.forEach((ele, i) => {
-    if (ele._id === chapterId) return i;
+  course.chapters.forEach((ele, i) => {
+    if (ele._id.equals(chapterId)) {
+      chapterIndex = i;
+      return;
+    }
   });
+
+  let data = course.chapters[chapterIndex].mockTests[0].questions.filter(
+    (ele) => ele.questionText !== questionText
+  );
+
+  course.chapters[chapterIndex].mockTests[0].questions = data;
+
+  const updateCourse = await Course.findOneAndUpdate(
+    { _id },
+    {
+      chapters: course.chapters,
+    },
+    {
+      new: true,
+    }
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updateCourse, "Questions deleted successfully"));
 });
 
-export { createCourse, addChapter, addMockTest, addQuestions };
+const deleteMockTest = asyncHandler(async (req, res) => {
+  const { _id, chapterId } = req.body;
+  const user = req.user;
+  let chapterIndex;
+
+  const course = await Course.findById(_id);
+
+  if (!course.owner.equals(user._id)) {
+    throw new ApiError(403, "Not Authorized !!!");
+  }
+
+  course.chapters.forEach((ele, i) => {
+    if (ele._id.equals(chapterId)) {
+      chapterIndex = i;
+      return;
+    }
+  });
+
+  course.chapters[chapterIndex].mockTests[0] = [];
+
+  const updateCourse = await Course.findOneAndUpdate(
+    { _id },
+    {
+      chapters: course.chapters,
+    },
+    {
+      new: true,
+    }
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updateCourse, "Mocktest deleted successfully"));
+});
+
+const deleteChapter = asyncHandler(async (req, res) => {
+  const { _id, chapterId } = req.body;
+  const user = req.user;
+
+  const course = await Course.findById(_id);
+
+  if (!course.owner.equals(user._id)) {
+    throw new ApiError(403, "Not Authorized !!!");
+  }
+
+  const updateCourse = await Course.findByIdAndUpdate(
+    { _id },
+    {
+      $pull: { chapters: { _id: chapterId } },
+    },
+    {
+      new: true,
+    }
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updateCourse, "Mocktest deleted successfully"));
+});
+
+const editChapter = asyncHandler(async (req, res) => {
+  const { _id, chapterId, title, content } = req.body;
+  const user = req.user;
+  let chapterIndex;
+
+  const course = await Course.findById(_id);
+
+  if (!course.owner.equals(user._id)) {
+    throw new ApiError(403, "Not Authorized !!!");
+  }
+
+  course.chapters.forEach((ele, i) => {
+    if (ele._id.equals(chapterId)) {
+      chapterIndex = i;
+      return;
+    }
+  });
+
+  if (title) {
+    course.chapters[chapterIndex].title = title;
+  }
+
+  if (content) {
+    course.chapters[chapterIndex].content = content;
+  }
+
+  await course.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, course, "Chapter editied successfully"));
+});
+
+const editCourse = asyncHandler(async (req, res) => {
+  const { _id, title, description } = req.body;
+
+  const course = await Course.findById(_id);
+
+  if (!course.owner.equals(user._id)) {
+    throw new ApiError(403, "Not Authorized !!!");
+  }
+
+  if (title) {
+    course.title = title;
+  }
+
+  if (description) {
+    course.description = description;
+  }
+
+  await course.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, course, "Course editied successfully"));
+});
+
+const deleteCourse = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
+
+  const course = await Course.findById(_id);
+
+  if (!course.owner.equals(user._id)) {
+    throw new ApiError(403, "Not Authorized !!!");
+  }
+
+  await Course.findByIdAndDelete(_id);
+
+  return res
+    .status(204)
+    .json(new ApiResponse(204, {}, "Course Deleted successfully"));
+});
+
+export {
+  createCourse,
+  addChapter,
+  addMockTest,
+  addQuestions,
+  deleteQuestions,
+  deleteMockTest,
+  deleteChapter,
+  editChapter,
+  editCourse,
+  deleteCourse
+};
